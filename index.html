@@ -23,6 +23,15 @@
      sand-toned inert box read as another warm surface rather than as "not available".
      Do not reach for these anywhere else. */
   --dim:#ECECEC; --dim-line:#D4D4D4; --dim-ink:#6E6E6E;
+  /* The unfilled star. It was --line-2, which is a hairline colour and measured 1.48:1 on
+     --surface — a control you had to know was there. A star is a meaningful graphic, so it
+     owes 3:1 under WCAG 1.4.11, not the 1.48 an edge gets away with.
+     Derived the way --muted was: the lightest value on the file's hue (14°) and saturation
+     (16%) that clears 3:1 on every background a star rests on, hover included — surface
+     3.89, ground 3.56, surface-2 3.42, card-tint 3.36, surface-3 3.05. Lighter than
+     --muted (5.22) on purpose: seventy-five of these down a list should read as available,
+     not as content. Taif's call, 5 Oct. */
+  --star-off:#977970;
   --accent:#3D1310; --accent-ink:#FBF3F0; --accent-soft:#EFE1DB;
   --signal:#BE3627; --signal-soft:#F8E5E1;
   --warn:#96520D; --warn-soft:#F6EAD9;
@@ -636,6 +645,12 @@ body.nobadge .badge{display:none}
   padding:0 14px;border-radius:9px;background:var(--surface-2);color:var(--ink);
   font-size:13px;font-weight:450;text-align:center}
 .favall:hover{background:var(--surface-3)}
+/* In Menu-less this is the only way into the library — the big buttons and the page row
+   that used to offer the other routes are gone as of 5 Oct — so it carries the accent
+   rather than the quiet fill it has in Traditional, where the burger and the bar both
+   still lead there. Taif's call: make it more visible. */
+.favpop .favall{background:var(--accent);color:var(--accent-ink);font-weight:500;height:38px}
+.favpop .favall:hover{background:var(--accent);opacity:.92}
 /* Traditional's menu has 6px of its own padding all round, so the footer is pulled out
    to the edges and puts it back inside itself — otherwise the rows scroll past it
    through a 6px slot on either side. */
@@ -774,7 +789,7 @@ body.resview .page{padding-bottom:0}
 .rmgr-rows .rrow:last-child{border-bottom:0}
 .rrow:hover{background:var(--surface-2)}
 /* the star lives here, always visible — this is where favouriting happens */
-.rstar{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--line-2);flex:none}
+.rstar{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--star-off);flex:none}
 .rstar svg{fill:none}
 .rstar.on{color:var(--signal)}
 .rstar.on svg{fill:currentColor}
@@ -818,7 +833,7 @@ body.resview .page{padding-bottom:0}
 .gname{flex:1;min-width:0;font-size:13px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;text-align:left}
 .grow:hover .gname{color:var(--ink)}
-.gstar{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--line-2);flex:none;
+.gstar{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--star-off);flex:none;
   opacity:0;transition:opacity .12s}
 .gstar svg{fill:none}
 .grow:hover .gstar,.gstar.on,.gstar:focus-visible{opacity:1}
@@ -2770,12 +2785,24 @@ function wireResMgr(root, again){
   q.addEventListener('input',function(){resQuery=q.value;paintResRows();});
 }
 
+/* The state the manager opens in. Taif's call, 5 Oct: filters were surviving between
+   visits, so a participant who had filtered to Rapporter an hour ago met that filter again
+   on a task that had nothing to do with it — and nothing on screen said why the list was
+   short. Every open starts from the same place now.
+   The module is the exception, and it is not remembered either: it is read from where the
+   manager was opened. Opening it from inside Regnskap filters it to Regnskap, because that
+   is the question being asked. From the dashboard it opens on Alle. */
+function resEnter(mod){
+  resModule = mod || 'Alle';
+  resCat='Alle'; resQuery=''; resShowAll={}; resClosedCats={};
+}
 /* ---- the side panel: Traditional only ---- */
 var tResPanelOpen=false;
 function openResPanel(){
   /* already looking at the manager full-size — the menu row is marked active in that
      case, so this is "you are here", not a control that does nothing */
   if(view.name==='resources'){ closeTradMenus(); return; }
+  resEnter(tradMod);
   tResPanelOpen=true; renderResPanel();
 }
 function closeResPanel(){
@@ -5361,7 +5388,11 @@ function openTradModMenu(){
   var cats=RES_CATS.filter(function(c){ return tradCatRows(mod,c).length; });
   var here=function(n){ return view.name==='asset' && view.item && view.item.n===n; };
   m.innerHTML =
-     tradRow('data-tmodhome="1"', '', 'Oversikt',
+     /* the module's own name, not "Oversikt" — Taif's call, 5 Oct. One word was doing two
+        jobs: the dashboard in every breadcrumb, and the landing page of whichever module
+        you happened to be in. The trail already reads Oversikt / Regnskap, so the row that
+        goes to Regnskap's landing page says Regnskap. */
+     tradRow('data-tmodhome="1"', '', mod,
        {active:view.name==='hmod' && view.mod===mod})
    + tradPagesFor(mod).map(function(sub){
        return tradRow('data-tsubpage="'+esc(sub)+'"', '', sub, {active:here(sub)});}).join('')
@@ -5404,6 +5435,9 @@ function wireTradMenu(m){
          no rail, so both of those fall through. */
       if(g==='resources' && settings.concept==='traditional'
          && b.hasAttribute('data-tpanel')){ openResPanel(); return; }
+      /* read before tradMod is cleared: the page you are leaving is what scopes the
+         manager you are opening */
+      if(g==='resources' && settings.concept==='traditional') resEnter(tradMod);
       tradMod=null;                       /* both of these leave the module context */
       view={name:g}; renderView(); window.scrollTo(0,0);});});
   m.querySelectorAll('[data-tmod]').forEach(function(b){
@@ -5671,8 +5705,15 @@ function mlSegItems(){
    ds (the resource count per module), and the .msegds rule above still styles it, so
    flipping this back to 1 restores them. */
 var ML_SEG_DS = 0;
+/* The whole row, and the page row under it, hidden — Taif's call, 5 Oct. It leaves the
+   bottom bar as the only navigation in this concept, which is the premise being tested:
+   the four big buttons and the Ressurser link were a menu in the page body wearing
+   different clothes. Nothing is deleted — mlSegItems(), renderMlPages() and all the CSS
+   are still here, and setting this to 1 brings both rows back as they were. */
+var ML_SEG = 0;
 function renderMlSeg(){
   var old=$('#msegwrap'); if(old && old.parentNode) old.parentNode.removeChild(old);
+  if(!ML_SEG) return;
   if(settings.concept!=='menuless') return;
   if(view.name!=='home' && view.name!=='hmod') return;
   var page=$('#page'), host=page && page.firstElementChild;
@@ -5833,21 +5874,29 @@ function wireMlOnce(){
    Drawn as spans — **none of it is clickable** — because Traditional already has two
    dropdowns and a bottom bar to move with, and a crumb that looks like a link and is not
    one would be worse than a crumb that plainly is not. */
+/* No root crumb — Taif's call, 5 Oct. "Oversikt" led every trail in this concept, which
+   made the first crumb the same word on every screen and pushed the part that actually
+   says where you are one step to the right. The dashboard now has no trail at all, which
+   is honest: there is nowhere above it. */
 function tradTrail(){
-  var root={label:'Oversikt'};
-  if(view.name==='resources') return [root,{label:'Ressurser'}];
-  if(view.name==='hmod')      return [root,{label:view.mod}];
+  if(view.name==='resources') return [{label:'Ressurser'}];
+  if(view.name==='hmod')      return [{label:view.mod}];
   if(view.name==='asset'){
-    var t=[root];
+    var t=[];
     if(view.path) t.push({label:view.path.label});
     t.push({label:view.item.n});
     return t;
   }
-  return [root];
+  return [];
 }
 function renderTradCrumbs(){
   var el=$('#tcrumbs'); if(!el) return;
   var t=tradTrail();
+  /* the divider earns its place only when there is something on both sides of it — on the
+     dashboard the trail is empty and the module pill is hidden, so it would have been a
+     rule with nothing to separate */
+  var vr=el.previousElementSibling;
+  if(vr && vr.classList.contains('tvrule')) vr.hidden = !t.length;
   el.innerHTML=t.map(function(c,i){
     return (i?'<span class="topsep" aria-hidden="true">/</span>':'')
       +'<span class="topcrumb'+(i===t.length-1?' here':'')+'" title="'+esc(c.label)+'">'
